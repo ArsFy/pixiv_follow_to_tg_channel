@@ -8,6 +8,7 @@ import auth
 import requests
 import time
 import asyncio
+import threading
 
 # Config
 try:
@@ -84,8 +85,8 @@ async def update_follow(bot, run):
 
 async def up(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id in config["admin"]:
-        asyncio.run(update_follow(application.bot, False))
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Create update task.")
+        update_follow(application.bot, False)
 
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id == config["admin"][0]:
@@ -139,17 +140,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="/up - Create update task\n/add_admin - Add a admin (Reply message)\n/remove_admin - Remove a admin (Reply message)\n/add_follow <pixiv_user_id> - Add follow\n/delete_follow <pixiv_user_id> - Delete follow")
 
 if __name__ == '__main__':
+    def refresh_threading():
+        asyncio.run(refresh())
+    def update_follow_threading(bot, run):
+        asyncio.run(update_follow(bot, run))
+
     application = ApplicationBuilder().token(config['bot_token']).build()
-    
+
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('up', up))
     application.add_handler(CommandHandler('add_admin', add_admin))
     application.add_handler(CommandHandler('remove_admin', remove_admin))
     application.add_handler(CommandHandler('add_follow', add_follow))
     application.add_handler(CommandHandler('delete_follow', delete_follow))
-    
-    asyncio.run(refresh())
-    asyncio.run(update_follow(application.bot, True))
+
+    # Start threads as daemon threads
+    threading.Thread(target=refresh_threading, daemon=True).start()
+    threading.Thread(target=update_follow_threading, args=(application.bot, True,), daemon=True).start()
 
     print("Starting bot...")
     application.run_polling()
