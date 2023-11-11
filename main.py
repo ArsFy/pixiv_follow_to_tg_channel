@@ -1,5 +1,6 @@
 from telegram import Update, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from tqdm import tqdm
 from pixivpy3 import *
 import sys, os
 import json
@@ -51,7 +52,7 @@ async def update_follow(bot, run):
         try:
             data = api.illust_follow()
 
-            for i in data["illusts"]:
+            for i in tqdm(data["illusts"]):
                 if len(db_client.read_data("illust", {"id": i.id})) == 0:
 
                     taglist = []
