@@ -71,9 +71,9 @@ async def update_follow(bot, run):
                         for j in range(0, len(i.meta_pages)):
                             filelist.append(save_image(i.meta_pages[j].image_urls.original, i.id, j))
 
-                        try: await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist])
-                        except: pass
-                        try: await bot.send_message(chat_id=config["channel_id"], text=f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}', parse_mode="Markdown")
+                        try: 
+                            await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist])
+                            await bot.send_message(chat_id=config["channel_id"], text=f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}', parse_mode="Markdown")
                         except: pass
 
                     db_client.write_data("illust", {"id": i.id, "title": i.title, "user": i.user, "tags": taglist, "count": i.page_count})
