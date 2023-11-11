@@ -1,0 +1,4 @@
+telegram-bot-api
+pixivpy3
+requests
+pymongo

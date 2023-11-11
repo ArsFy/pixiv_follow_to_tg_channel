@@ -1,0 +1,8 @@
+{
+    "refresh_token": "",
+    "mongo_uri": "mongodb+srv://user:pass@127.0.0.1",
+    "database_name": "name",
+    "bot_token": "",
+    "channel_id": -1,
+    "img_path": "./img"
+}
