@@ -1,6 +1,8 @@
 from telegram import Update, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from tqdm import tqdm
+from PIL import Image
+from io import BytesIO
 from pixivpy3 import *
 import sys, os
 import json
@@ -10,6 +12,19 @@ import requests
 import time
 import asyncio
 import threading
+
+def compress_image(image_data, max_size_mb=5):
+    with Image.open(BytesIO(image_data)) as img:
+        img_size_mb = len(image_data) / (1024 * 1024)
+        if img_size_mb <= max_size_mb:
+            return image_data
+
+        img = img.convert("RGB")
+        output_buffer = BytesIO()
+        img.save(output_buffer, format="WEBP", quality=85)
+
+        compressed_data = output_buffer.getvalue()
+        return compressed_data
 
 # Config
 try:
@@ -38,7 +53,7 @@ def save_image(img: str, id: int, index: int):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
     })
     filepath = os.path.join(config['img_path'], f'{id}_{index}.{img.split("/")[-1].split(".")[-1]}')
-    open(filepath, "wb").write(r.content)
+    open(filepath, "wb").write(compress_image(r.content))
 
     return filepath
 
@@ -54,18 +69,19 @@ async def update_follow(bot, run):
 
             for i in tqdm(data["illusts"]):
                 if len(db_client.read_data("illust", {"id": i.id})) == 0:
-
                     taglist = []
                     for tag in i.tags:
-                        if tag.translated_name:
-                            taglist.append(tag.translated_name.replace(" ", "_").replace("R-18", "R18"))
-                        else:
-                            taglist.append(tag.name.replace(" ", "_").replace("R-18", "R18"))
+                        if tag.translated_name: tagname = tag.translated_name
+                        else: tagname = tag.name
+                        taglist.append(tagname.replace(" ", "\_").replace("R-18", "R18"))
+
+                    text = f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}'
 
                     if i.page_count == 1:
                         file = save_image(i.meta_single_page.original_image_url, i.id, 0)
-                        try: await bot.send_photo(chat_id=config["channel_id"], photo=open(file, "rb").read(), parse_mode="Markdown", caption=f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}')
-                        except: pass
+                        try: await bot.send_photo(chat_id=config["channel_id"], photo=open(file, "rb").read(), parse_mode="Markdown", caption=text)
+                        except Exception as e:
+                            print(f"Error: {e}")
                     else:
                         filelist = []
                         for j in range(0, len(i.meta_pages)):
@@ -73,12 +89,13 @@ async def update_follow(bot, run):
 
                         try: 
                             await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist])
-                            await bot.send_message(chat_id=config["channel_id"], text=f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}', parse_mode="Markdown")
-                        except: pass
+                            await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown")
+                        except Exception as e:
+                            print(f"Error: {e}")
 
                     db_client.write_data("illust", {"id": i.id, "title": i.title, "user": i.user, "tags": taglist, "count": i.page_count})
 
-                    time.sleep(2)
+                time.sleep(2)
         except:
             await bot.send_message(chat_id=config["admin"][0], text="Error: update follow")
 

@@ -3,3 +3,5 @@ pixivpy3
 requests
 pymongo
 schedule
+pillow
+tqdm
