@@ -86,7 +86,7 @@ async def update_follow(bot, run):
 async def up(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id in config["admin"]:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Create update task.")
-        update_follow(application.bot, False)
+        await update_follow(application.bot, False)
 
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id == config["admin"][0]:
