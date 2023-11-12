@@ -12,7 +12,13 @@ import requests
 import time
 import asyncio
 import threading
+import logging
 
+# Logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Big Image
 def compress_image(image_data, max_size_mb=5):
     with Image.open(BytesIO(image_data)) as img:
         img_size_mb = len(image_data) / (1024 * 1024)
@@ -59,8 +65,12 @@ def save_image(img: str, id: int, index: int):
 
 async def refresh():
     while True:
-        auth.refresh(config['refresh_token'])
-        time.sleep(600)
+        try:
+            auth.refresh(config['refresh_token'])
+            await asyncio.sleep(600)
+        except Exception as e:
+            logger.error(f"Error in refresh: {e}")
+            await asyncio.sleep(600)
 
 async def update_follow(bot, run):
     while run:
@@ -95,16 +105,17 @@ async def update_follow(bot, run):
 
                     db_client.write_data("illust", {"id": i.id, "title": i.title, "user": i.user, "tags": taglist, "count": i.page_count})
 
-                time.sleep(2)
-        except:
-            await bot.send_message(chat_id=config["admin"][0], text="Error: update follow")
+                await asyncio.sleep(2)
+        except Exception as e:
+            await bot.send_message(chat_id=config["admin"][0], text="Error: update follow, {}".format(e))
+            print(f"Error: {e}")
 
-        time.sleep(1800)
+        await asyncio.sleep(1800)
 
 async def up(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id in config["admin"]:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Create update task.")
-        await update_follow(application.bot, False)
+        threading.Thread(target=update_follow_threading, args=(application.bot, False,), daemon=True).start()
 
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id == config["admin"][0]:

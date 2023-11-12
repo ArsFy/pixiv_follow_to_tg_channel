@@ -2,6 +2,5 @@ python-telegram-bot
 pixivpy3
 requests
 pymongo
-schedule
 pillow
 tqdm
