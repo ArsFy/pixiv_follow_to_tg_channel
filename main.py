@@ -15,17 +15,25 @@ import threading
 import logging
 
 # Logs
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
 
 # Big Image
-def compress_image(image_data, max_size_mb=5):
+def compress_image(image_data, max_size_mb=5, max_resolution=4096):
     with Image.open(BytesIO(image_data)) as img:
         img_size_mb = len(image_data) / (1024 * 1024)
         if img_size_mb <= max_size_mb:
             return image_data
 
         img = img.convert("RGB")
+        width, height = img.size
+
+        if width > max_resolution or height > max_resolution:
+            ratio = min(max_resolution / width, max_resolution / height)
+            new_width = int(width * ratio)
+            new_height = int(height * ratio)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+
         output_buffer = BytesIO()
         img.save(output_buffer, format="WEBP", quality=85)
 
@@ -63,18 +71,11 @@ def save_image(img: str, id: int, index: int):
 
     return filepath
 
-async def refresh():
-    while True:
-        try:
-            auth.refresh(config['refresh_token'])
-            await asyncio.sleep(600)
-        except Exception as e:
-            logger.error(f"Error in refresh: {e}")
-            await asyncio.sleep(600)
-
 async def update_follow(bot, run):
     while run:
         try:
+            auth.refresh(config['refresh_token'])
+            
             data = api.illust_follow()
 
             for i in tqdm(data["illusts"]):
@@ -89,22 +90,24 @@ async def update_follow(bot, run):
 
                     if i.page_count == 1:
                         file = save_image(i.meta_single_page.original_image_url, i.id, 0)
-                        try: await bot.send_photo(chat_id=config["channel_id"], photo=open(file, "rb").read(), parse_mode="Markdown", caption=text)
+                        try: await bot.send_photo(chat_id=config["channel_id"], photo=open(file, "rb").read(), parse_mode="Markdown", caption=text, connect_timeout=60000)
                         except Exception as e:
                             print(f"Error: {e}")
                     else:
                         filelist = []
                         for j in range(0, len(i.meta_pages)):
                             filelist.append(save_image(i.meta_pages[j].image_urls.original, i.id, j))
-
                         try: 
-                            await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist])
-                            await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown")
+                            await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist], connect_timeout=60000, read_timeout=60000, write_timeout=60000)
+                        except Exception as e:
+                            print(f"Error: {e}")
+                        try:
+                            print(text)
+                            await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown", connect_timeout=60000)
                         except Exception as e:
                             print(f"Error: {e}")
 
                     db_client.write_data("illust", {"id": i.id, "title": i.title, "user": i.user, "tags": taglist, "count": i.page_count})
-
                 await asyncio.sleep(2)
         except Exception as e:
             await bot.send_message(chat_id=config["admin"][0], text="Error: update follow, {}".format(e))
@@ -169,8 +172,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="/up - Create update task\n/add_admin - Add a admin (Reply message)\n/remove_admin - Remove a admin (Reply message)\n/add_follow <pixiv_user_id> - Add follow\n/delete_follow <pixiv_user_id> - Delete follow")
 
 if __name__ == '__main__':
-    def refresh_threading():
-        asyncio.run(refresh())
     def update_follow_threading(bot, run):
         asyncio.run(update_follow(bot, run))
 
@@ -184,7 +185,6 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('delete_follow', delete_follow))
 
     # Start threads as daemon threads
-    threading.Thread(target=refresh_threading, daemon=True).start()
     threading.Thread(target=update_follow_threading, args=(application.bot, True,), daemon=True).start()
 
     print("Starting bot...")
