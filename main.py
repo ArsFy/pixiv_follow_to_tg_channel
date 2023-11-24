@@ -97,13 +97,10 @@ async def update_follow(bot, run):
                         filelist = []
                         for j in range(0, len(i.meta_pages)):
                             filelist.append(save_image(i.meta_pages[j].image_urls.original, i.id, j))
-                        try: 
-                            await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist], connect_timeout=60000, read_timeout=60000, write_timeout=60000)
+                        try:  await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist], connect_timeout=60000, read_timeout=60000, write_timeout=60000)
                         except Exception as e:
                             print(f"Error: {e}")
-                        try:
-                            print(text)
-                            await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown", connect_timeout=60000)
+                        try: await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown", connect_timeout=60000)
                         except Exception as e:
                             print(f"Error: {e}")
 
