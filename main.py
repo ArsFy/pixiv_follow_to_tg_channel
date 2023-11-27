@@ -14,10 +14,6 @@ import asyncio
 import threading
 import logging
 
-# Logs
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
-
 # Big Image
 def compress_image(image_data, max_size_mb=5, max_resolution=4096):
     with Image.open(BytesIO(image_data)) as img:
@@ -72,50 +68,51 @@ def save_image(img: str, id: int, index: int):
     return filepath
 
 async def update_follow(bot, run):
-    while run:
-        try:
-            auth.refresh(config['refresh_token'])
-            
-            data = api.illust_follow()
+    try:
+        auth.refresh(config['refresh_token'])
+        
+        data = api.illust_follow()
 
-            for i in tqdm(data["illusts"]):
-                if len(db_client.read_data("illust", {"id": i.id})) == 0:
-                    taglist = []
-                    for tag in i.tags:
-                        if tag.translated_name: tagname = tag.translated_name
-                        else: tagname = tag.name
-                        taglist.append(tagname.replace(" ", "\_").replace("R-18", "R18"))
+        for i in tqdm(data["illusts"]):
+            if len(db_client.read_data("illust", {"id": i.id})) == 0:
+                taglist = []
+                for tag in i.tags:
+                    if tag.translated_name: tagname = tag.translated_name
+                    else: tagname = tag.name
+                    taglist.append(tagname.replace(" ", "\_").replace("R-18", "R18"))
 
-                    text = f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}'
+                text = f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}'
 
-                    if i.page_count == 1:
-                        file = save_image(i.meta_single_page.original_image_url, i.id, 0)
-                        try: await bot.send_photo(chat_id=config["channel_id"], photo=open(file, "rb").read(), parse_mode="Markdown", caption=text, connect_timeout=60000)
-                        except Exception as e:
-                            print(f"Error: {e}")
-                    else:
-                        filelist = []
-                        for j in range(0, len(i.meta_pages)):
-                            filelist.append(save_image(i.meta_pages[j].image_urls.original, i.id, j))
-                        try:  await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist], connect_timeout=60000, read_timeout=60000, write_timeout=60000)
-                        except Exception as e:
-                            print(f"Error: {e}")
-                        try: await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown", connect_timeout=60000)
-                        except Exception as e:
-                            print(f"Error: {e}")
+                if i.page_count == 1:
+                    file = save_image(i.meta_single_page.original_image_url, i.id, 0)
+                    try: await bot.send_photo(chat_id=config["channel_id"], photo=open(file, "rb").read(), parse_mode="Markdown", caption=text, connect_timeout=60000)
+                    except Exception as e:
+                        print(f"Error: {e}")
+                else:
+                    filelist = []
+                    for j in range(0, len(i.meta_pages)):
+                        filelist.append(save_image(i.meta_pages[j].image_urls.original, i.id, j))
+                    try:  await bot.send_media_group(chat_id=config["channel_id"], media=[InputMediaPhoto(open(image, 'rb')) for image in filelist], connect_timeout=60000, read_timeout=60000, write_timeout=60000)
+                    except Exception as e:
+                        print(f"Error: {e}")
+                    try: await bot.send_message(chat_id=config["channel_id"], text=text, parse_mode="Markdown", connect_timeout=60000)
+                    except Exception as e:
+                        print(f"Error: {e}")
 
-                    db_client.write_data("illust", {"id": i.id, "title": i.title, "user": i.user, "tags": taglist, "count": i.page_count})
-                await asyncio.sleep(2)
-        except Exception as e:
-            await bot.send_message(chat_id=config["admin"][0], text="Error: update follow, {}".format(e))
-            print(f"Error: {e}")
+                db_client.write_data("illust", {"id": i.id, "title": i.title, "user": i.user, "tags": taglist, "count": i.page_count})
+            await asyncio.sleep(2)
+    except Exception as e:
+        await bot.send_message(chat_id=config["admin"][0], text="Error: update follow, {}".format(e))
+        print(f"Error: {e}")
 
-        await asyncio.sleep(1800)
+    await asyncio.sleep(1800)
+
+    os.execl(sys.executable, sys.executable, *sys.argv)
 
 async def up(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id in config["admin"]:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Create update task.")
-        threading.Thread(target=update_follow_threading, args=(application.bot, False,), daemon=True).start()
+        os.execl(sys.executable, sys.executable, *sys.argv)
 
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id == config["admin"][0]:
