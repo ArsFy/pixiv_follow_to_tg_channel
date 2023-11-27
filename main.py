@@ -81,7 +81,7 @@ async def update_follow(bot, run):
                     else: tagname = tag.name
                     taglist.append(tagname.replace(" ", "\_").replace("R-18", "R18"))
 
-                text = f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id})\nTags: #{" #".join(taglist)}'
+                text = f'ID: [{i.id}](https://pixiv.net/i/{i.id})\nTitle: {i.title}\nUser: [{i.user.name}](https://pixiv.net/users/{i.user.id}) (#{i.user.name})\nTags: #{" #".join(taglist)}'
 
                 if i.page_count == 1:
                     file = save_image(i.meta_single_page.original_image_url, i.id, 0)
